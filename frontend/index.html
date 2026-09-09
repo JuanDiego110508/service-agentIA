@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Dance - Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      /* Un fondo oscuro genérico de World Dance para la página base */
+      background: #0a0510;
+      background-image: radial-gradient(circle at 50% 0%, #301050 0%, #0a0510 60%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      color: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .demo-content {
+      text-align: center;
+      max-width: 600px;
+    }
+
+    .demo-content h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #d896ff, #9b4dff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+
+    .demo-content p {
+      color: #a099b0;
+      font-size: 1.1rem;
+    }
+
+    /* =========================================
+       INICIO DE ESTILOS DEL WIDGET DE CHAT
+       ========================================= */
+    :root {
+      --wd-primary: #9b4dff;
+      --wd-primary-dark: #6a1b9a;
+      --wd-bg: #0a0510;
+      --wd-glass: rgba(10, 5, 16, 0.85);
+      --wd-border: rgba(255, 255, 255, 0.1);
+      --wd-text: #f8f9fa;
+    }
+
+    /* Botón flotante */
+    .wd-chat-launcher {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--wd-primary), var(--wd-primary-dark));
+      color: white;
+      border: none;
+      box-shadow: 0 4px 15px rgba(155, 77, 255, 0.4);
+      cursor: pointer;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .wd-chat-launcher:hover {
+      transform: scale(1.1);
+    }
+
+    .wd-chat-launcher.pulse {
+      animation: wdPulse 2s infinite;
+    }
+
+    @keyframes wdPulse {
+      0% { box-shadow: 0 0 0 0 rgba(155, 77, 255, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(155, 77, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(155, 77, 255, 0); }
+    }
+
+    /* Contenedor del Chat */
+    .wd-chat-widget {
+      position: fixed;
+      bottom: 100px;
+      right: 24px;
+      width: 350px;
+      height: 520px;
+      background: var(--wd-glass);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--wd-border);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      z-index: 9998;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .wd-chat-widget.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .wd-chat-header {
+      padding: 1rem 1.2rem;
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom: 1px solid var(--wd-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wd-chat-header-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .wd-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #dc2626; /* red = offline */
+      box-shadow: 0 0 5px #dc2626;
+    }
+
+    .wd-status-dot.online {
+      background: #22c55e;
+      box-shadow: 0 0 5px #22c55e;
+    }
+
+    .wd-chat-header h3 {
+      margin: 0;
+      color: var(--wd-text);
+      font-size: 1.1rem;
+      background: linear-gradient(90deg, #d896ff, #9b4dff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .wd-header-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .wd-icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--wd-text);
+      cursor: pointer;
+      opacity: 0.6;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+    }
+    .wd-icon-btn:hover { opacity: 1; }
+
+    .wd-chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .wd-chat-messages::-webkit-scrollbar { width: 5px; }
+    .wd-chat-messages::-webkit-scrollbar-thumb { background: rgba(155, 77, 255, 0.5); border-radius: 5px; }
+
+    .wd-msg {
+      max-width: 85%;
+      padding: 0.8rem 1rem;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      color: var(--wd-text);
+      line-height: 1.4;
+      animation: wdFadeIn 0.3s ease;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @keyframes wdFadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .wd-msg.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--wd-primary), var(--wd-primary-dark));
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 2px 10px rgba(155, 77, 255, 0.2);
+    }
+
+    .wd-msg.assistant {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--wd-border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .wd-msg.thinking {
+      align-self: flex-start;
+      background: transparent;
+      padding: 0.5rem 0;
+      font-style: italic;
+      color: var(--wd-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .wd-loader {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--wd-primary);
+      border-bottom-color: transparent;
+      border-radius: 50%;
+      display: inline-block;
+      animation: wdRotation 1s linear infinite;
+    }
+
+    @keyframes wdRotation {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .wd-chat-input-area {
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.4);
+      border-top: 1px solid var(--wd-border);
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .wd-chat-input-area input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--wd-border);
+      border-radius: 20px;
+      padding: 0.7rem 1rem;
+      color: var(--wd-text);
+      outline: none;
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: border-color 0.3s;
+    }
+
+    .wd-chat-input-area input:focus {
+      border-color: var(--wd-primary);
+    }
+
+    .wd-chat-input-area button {
+      background: var(--wd-primary);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      flex-shrink: 0;
+    }
+
+    .wd-chat-input-area button:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 0 10px rgba(155, 77, 255, 0.4);
+    }
+    
+    .wd-chat-input-area button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="demo-content">
+    <h1>Proyecto World Dance</h1>
+    <p>La vista principal ahora es exclusivamente el widget flotante conectado al backend.</p>
+    <p>Haz clic en el icono morado de la esquina inferior derecha.</p>
+  </div>
+
+  <!-- BUBBLE LAUNCHER -->
+  <button class="wd-chat-launcher pulse" id="wd-launcher" aria-label="Abrir chat">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+  </button>
+
+  <!-- CHAT WIDGET -->
+  <div class="wd-chat-widget" id="wd-widget">
+    <div class="wd-chat-header">
+      <div class="wd-chat-header-info">
+        <div class="wd-status-dot" id="wd-status-dot" title="Desconectado"></div>
+        <h3>Asistente World Dance</h3>
+      </div>
+      <div class="wd-header-actions">
+        <!-- Botón Limpiar Historial -->
+        <button class="wd-icon-btn" id="wd-clear" title="Limpiar historial">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+        <!-- Botón Cerrar -->
+        <button class="wd-icon-btn" id="wd-close" title="Cerrar chat">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    
+    <div class="wd-chat-messages" id="wd-messages">
+      <!-- Los mensajes se cargarán aquí -->
+    </div>
+
+    <form class="wd-chat-input-area" id="wd-form">
+      <input type="text" id="wd-input" placeholder="Pregúntame algo..." autocomplete="off">
+      <button type="submit" id="wd-send-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
+    </form>
+  </div>
+
+  <script>
+    const API = 'http://127.0.0.1:5000';
+    const launcher = document.getElementById('wd-launcher');
+    const widget = document.getElementById('wd-widget');
+    const closeBtn = document.getElementById('wd-close');
+    const clearBtn = document.getElementById('wd-clear');
+    const form = document.getElementById('wd-form');
+    const input = document.getElementById('wd-input');
+    const messagesEl = document.getElementById('wd-messages');
+    const statusDot = document.getElementById('wd-status-dot');
+    const sendBtn = document.getElementById('wd-send-btn');
+
+    let isHistoryLoaded = false;
+
+    // Toggle chat
+    launcher.addEventListener('click', () => {
+      widget.classList.add('open');
+      launcher.classList.remove('pulse');
+      input.focus();
+      
+      // Cargar historial solo la primera vez que se abre
+      if(!isHistoryLoaded) {
+        loadHistory();
+      }
+    });
+
+    closeBtn.addEventListener('click', () => {
+      widget.classList.remove('open');
+    });
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = `wd-msg ${role}`;
+      
+      if (role === 'thinking') {
+        div.innerHTML = `<span class="wd-loader"></span> ${text}`;
+      } else {
+        div.textContent = text;
+      }
+      
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API}/api/history`);
+        if(res.ok) {
+          const { messages } = await res.json();
+          messagesEl.innerHTML = ''; // limpiar para no duplicar
+          if (messages.length === 0) {
+            addMessage('assistant', '¡Hola! Soy el asistente IA de World Dance. ¿En qué puedo ayudarte?');
+          } else {
+            messages.forEach(m => addMessage(m.role, m.content));
+          }
+          isHistoryLoaded = true;
+        }
+      } catch (e) {
+        addMessage('assistant', '¡Hola! Soy el asistente IA de World Dance. (No se pudo cargar el historial)');
+      }
+    }
+
+    async function checkStatus() {
+      try {
+        const res = await fetch(`${API}/api/status`);
+        if(res.ok) {
+          statusDot.classList.add('online');
+          statusDot.title = "En línea";
+        } else {
+          throw new Error('Offline');
+        }
+      } catch {
+        statusDot.classList.remove('online');
+        statusDot.title = "Desconectado";
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || sendBtn.disabled) return;
+
+      input.value = '';
+      addMessage('user', text);
+
+      const thinking = addMessage('thinking', 'Pensando...');
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        
+        const data = await res.json();
+        thinking.remove();
+        
+        if(res.ok) {
+          addMessage('assistant', data.response);
+        } else {
+          addMessage('assistant', `Error: ${data.error || 'Desconocido'}`);
+        }
+      } catch (err) {
+        thinking.remove();
+        addMessage('assistant', 'Error de conexión con el servidor. Verifica que el backend esté ejecutándose.');
+      }
+
+      sendBtn.disabled = false;
+      input.focus();
+    });
+
+    clearBtn.addEventListener('click', async () => {
+      try {
+        await fetch(`${API}/api/history/clear`, { method: 'POST' });
+        messagesEl.innerHTML = '';
+        addMessage('assistant', 'Historial limpiado. ¿De qué más quieres hablar?');
+      } catch (e) {
+        alert("Error limpiando historial");
+      }
+    });
+
+    // Iniciar chequeos
+    checkStatus();
+    setInterval(checkStatus, 10000);
+  </script>
+</body>
+</html>

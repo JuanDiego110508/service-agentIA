@@ -1,0 +1,78 @@
+{
+  "session_id": "separated_test",
+  "updated_at": "2026-09-06T12:24:03.881356",
+  "message_count": 6,
+  "messages": [
+    {
+      "id": 1,
+      "role": "user",
+      "content": "Calcula 25 multiplicado por 14",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:23:56.269694",
+      "metadata": {}
+    },
+    {
+      "id": 2,
+      "role": "assistant",
+      "content": "⚠️ **Aviso de Configuración del Agente**:\n\nAún no has configurado una clave API (OpenAI, Gemini o Groq) o un modelo local Ollama.\n\n👉 Puedes ingresar tu clave directamente en el botón **Ajustes ⚙️** (arriba a la derecha) o añadir `OPENAI_API_KEY` / `GEMINI_API_KEY` en tu archivo `.env`.\n\n*Tip de prueba*: Puedes probar de inmediato las herramientas MCP escribiendo por ejemplo: `Suma 15 y 25`, `Multiplica 7 por 8`, `Eleva 2 a la 10`, o probar las herramientas propias escribiendo: `¿Qué clima hace en Madrid?` o `¿Qué hora es?`.",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:23:56.270925",
+      "metadata": {
+        "status": "missing_api_key"
+      }
+    },
+    {
+      "id": 3,
+      "role": "user",
+      "content": "¿Qué clima hace en Madrid?",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:23:56.279072",
+      "metadata": {}
+    },
+    {
+      "id": 4,
+      "role": "assistant",
+      "content": "He consultado mi **herramienta propia de Clima** para **Hace En Madrid**:\n```json\n{\n  \"herramienta\": \"Herramienta Propia: Consultar Clima\",\n  \"ciudad\": \"Hace En Madrid\",\n  \"temperatura\": \"28.0°C\",\n  \"condicion\": \"Cielo con intervalos nubosos\",\n  \"humedad\": \"58%\",\n  \"viento\": \"11 km/h\",\n  \"nota\": \"Datos obtenidos mediante la herramienta propia local de CrewAI.\"\n}\n```",
+      "tools_used": [
+        {
+          "name": "Herramienta Propia: consultar_clima",
+          "params": {
+            "ciudad": "hace en madrid"
+          },
+          "result": "{\n  \"herramienta\": \"Herramienta Propia: Consultar Clima\",\n  \"ciudad\": \"Hace En Madrid\",\n  \"temperatura\": \"28.0°C\",\n  \"condicion\": \"Cielo con intervalos nubosos\",\n  \"humedad\": \"58%\",\n  \"viento\": \"11 km/h\",\n  \"nota\": \"Datos obtenidos mediante la herramienta propia local de CrewAI.\"\n}"
+        }
+      ],
+      "timestamp": "2026-09-06T12:23:56.279818",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    },
+    {
+      "id": 5,
+      "role": "user",
+      "content": "Multiplica 25 por 14",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:24:03.880947",
+      "metadata": {}
+    },
+    {
+      "id": 6,
+      "role": "assistant",
+      "content": "He ejecutado la herramienta MCP **multiplicar** para `25.0` × `14.0`.\n\nResultado: **350.0**",
+      "tools_used": [
+        {
+          "name": "MCP Tool: multiplicar",
+          "params": {
+            "a": 25.0,
+            "b": 14.0
+          },
+          "result": 350.0
+        }
+      ],
+      "timestamp": "2026-09-06T12:24:03.881352",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    }
+  ]
+}

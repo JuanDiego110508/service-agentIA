@@ -1,0 +1,111 @@
+{
+  "session_id": "test_final",
+  "updated_at": "2026-09-06T12:24:59.999201",
+  "message_count": 8,
+  "messages": [
+    {
+      "id": 1,
+      "role": "user",
+      "content": "Calcula 25 multiplicado por 14",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:24:59.970906",
+      "metadata": {}
+    },
+    {
+      "id": 2,
+      "role": "assistant",
+      "content": "He ejecutado la herramienta MCP **multiplicar** para `25.0` × `14.0`.\n\nResultado: **350.0**",
+      "tools_used": [
+        {
+          "name": "MCP Tool: multiplicar",
+          "params": {
+            "a": 25.0,
+            "b": 14.0
+          },
+          "result": 350.0
+        }
+      ],
+      "timestamp": "2026-09-06T12:24:59.972347",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    },
+    {
+      "id": 3,
+      "role": "user",
+      "content": "¿Qué clima hace en Madrid?",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:24:59.981437",
+      "metadata": {}
+    },
+    {
+      "id": 4,
+      "role": "assistant",
+      "content": "He consultado mi **herramienta propia de Clima** para **Madrid**:\n```json\n{\n  \"herramienta\": \"Herramienta Propia: Consultar Clima\",\n  \"ciudad\": \"Madrid\",\n  \"temperatura\": \"24.5°C\",\n  \"condicion\": \"Soleado y despejado\",\n  \"humedad\": \"45%\",\n  \"viento\": \"8 km/h\",\n  \"nota\": \"Datos obtenidos mediante la herramienta propia local de CrewAI.\"\n}\n```",
+      "tools_used": [
+        {
+          "name": "Herramienta Propia: consultar_clima",
+          "params": {
+            "ciudad": "madrid"
+          },
+          "result": "{\n  \"herramienta\": \"Herramienta Propia: Consultar Clima\",\n  \"ciudad\": \"Madrid\",\n  \"temperatura\": \"24.5°C\",\n  \"condicion\": \"Soleado y despejado\",\n  \"humedad\": \"45%\",\n  \"viento\": \"8 km/h\",\n  \"nota\": \"Datos obtenidos mediante la herramienta propia local de CrewAI.\"\n}"
+        }
+      ],
+      "timestamp": "2026-09-06T12:24:59.981959",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    },
+    {
+      "id": 5,
+      "role": "user",
+      "content": "¿Qué hora es actualmente en el sistema?",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:24:59.989867",
+      "metadata": {}
+    },
+    {
+      "id": 6,
+      "role": "assistant",
+      "content": "He consultado mi **herramienta propia de Hora del Sistema**:\n```json\n{\n  \"herramienta\": \"Herramienta Propia: Hora del Sistema\",\n  \"dia_semana\": \"Domingo\",\n  \"fecha\": \"6 de Septiembre de 2026\",\n  \"hora\": \"12:24:59\",\n  \"timestamp_iso\": \"2026-09-06T12:24:59.990172\"\n}\n```",
+      "tools_used": [
+        {
+          "name": "Herramienta Propia: obtener_hora_sistema",
+          "params": {},
+          "result": "{\n  \"herramienta\": \"Herramienta Propia: Hora del Sistema\",\n  \"dia_semana\": \"Domingo\",\n  \"fecha\": \"6 de Septiembre de 2026\",\n  \"hora\": \"12:24:59\",\n  \"timestamp_iso\": \"2026-09-06T12:24:59.990172\"\n}"
+        }
+      ],
+      "timestamp": "2026-09-06T12:24:59.990239",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    },
+    {
+      "id": 7,
+      "role": "user",
+      "content": "Eleva 2 a la 12",
+      "tools_used": [],
+      "timestamp": "2026-09-06T12:24:59.998775",
+      "metadata": {}
+    },
+    {
+      "id": 8,
+      "role": "assistant",
+      "content": "He ejecutado la herramienta MCP **potenciacion** para `2.0` elevado a `12.0`.\n\nResultado: **4096.0**",
+      "tools_used": [
+        {
+          "name": "MCP Tool: potenciacion",
+          "params": {
+            "base": 2.0,
+            "exponente": 12.0
+          },
+          "result": 4096.0
+        }
+      ],
+      "timestamp": "2026-09-06T12:24:59.999196",
+      "metadata": {
+        "mode": "demo_fallback"
+      }
+    }
+  ]
+}

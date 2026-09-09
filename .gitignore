@@ -1,0 +1,24 @@
+# Archivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+.env/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Variables de entorno
+.env
+
+# Archivos temporales e historial de conversacion local
+backend/data/history/conversacion.json
+*.log
+*.sqlite3
+
+# Entornos de desarrollo
+.vscode/
+.idea/
