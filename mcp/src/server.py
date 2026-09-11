@@ -28,9 +28,17 @@ def get_auth_headers() -> dict[str, str]:
     return headers
 
 # Inicializar FastMCP
+# host/port se pasan aqui (no despues via mcp.settings) porque FastMCP solo
+# auto-configura la proteccion DNS-rebinding (allowed_hosts=localhost/127.0.0.1)
+# cuando el host de construccion es localhost. Como el servidor escucha en
+# 0.0.0.0 dentro de Docker y los clientes llegan con Host: service-agentia-mcp,
+# construirlo ya con ese host evita que quede una allowlist obsoleta que
+# rechace toda conexion con 421 Misdirected Request.
 mcp = FastMCP(
     "WorldDanceServer",
-    dependencies=["requests"]
+    dependencies=["requests"],
+    host=HOST,
+    port=PORT
 )
 
 # -------------------------------------------------------------
@@ -130,8 +138,6 @@ def main() -> None:
     print(f"Iniciando servidor MCP '{mcp.name}' en http://{HOST}:{PORT} (transporte: {TRANSPORT})...")
     # FastMCP maneja el transporte internamente
     if TRANSPORT == "sse":
-        mcp.settings.port = PORT
-        mcp.settings.host = HOST
         mcp.run(transport="sse")
     else:
         mcp.run(transport="stdio")
