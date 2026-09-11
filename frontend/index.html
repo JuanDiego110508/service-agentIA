@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,9 +80,17 @@
     }
 
     @keyframes wdPulse {
-      0% { box-shadow: 0 0 0 0 rgba(155, 77, 255, 0.7); }
-      70% { box-shadow: 0 0 0 15px rgba(155, 77, 255, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(155, 77, 255, 0); }
+      0% {
+        box-shadow: 0 0 0 0 rgba(155, 77, 255, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 15px rgba(155, 77, 255, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(155, 77, 255, 0);
+      }
     }
 
     /* Contenedor del Chat */
@@ -95,7 +104,7 @@
       backdrop-filter: blur(12px);
       border: 1px solid var(--wd-border);
       border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
       z-index: 9998;
       display: flex;
       flex-direction: column;
@@ -132,7 +141,8 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #dc2626; /* red = offline */
+      background: #dc2626;
+      /* red = offline */
       box-shadow: 0 0 5px #dc2626;
     }
 
@@ -167,7 +177,10 @@
       justify-content: center;
       transition: opacity 0.2s;
     }
-    .wd-icon-btn:hover { opacity: 1; }
+
+    .wd-icon-btn:hover {
+      opacity: 1;
+    }
 
     .wd-chat-messages {
       flex: 1;
@@ -178,8 +191,14 @@
       gap: 1rem;
     }
 
-    .wd-chat-messages::-webkit-scrollbar { width: 5px; }
-    .wd-chat-messages::-webkit-scrollbar-thumb { background: rgba(155, 77, 255, 0.5); border-radius: 5px; }
+    .wd-chat-messages::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .wd-chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(155, 77, 255, 0.5);
+      border-radius: 5px;
+    }
 
     .wd-msg {
       max-width: 85%;
@@ -194,8 +213,15 @@
     }
 
     @keyframes wdFadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .wd-msg.user {
@@ -207,7 +233,7 @@
 
     .wd-msg.assistant {
       align-self: flex-start;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--wd-border);
       border-bottom-left-radius: 4px;
     }
@@ -235,8 +261,13 @@
     }
 
     @keyframes wdRotation {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .wd-chat-input-area {
@@ -249,7 +280,7 @@
 
     .wd-chat-input-area input {
       flex: 1;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--wd-border);
       border-radius: 20px;
       padding: 0.7rem 1rem;
@@ -283,13 +314,14 @@
       transform: scale(1.05);
       box-shadow: 0 0 10px rgba(155, 77, 255, 0.4);
     }
-    
+
     .wd-chat-input-area button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
   </style>
 </head>
+
 <body>
 
   <div class="demo-content">
@@ -300,7 +332,8 @@
 
   <!-- BUBBLE LAUNCHER -->
   <button class="wd-chat-launcher pulse" id="wd-launcher" aria-label="Abrir chat">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   </button>
@@ -315,15 +348,22 @@
       <div class="wd-header-actions">
         <!-- Botón Limpiar Historial -->
         <button class="wd-icon-btn" id="wd-clear" title="Limpiar historial">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
         </button>
         <!-- Botón Cerrar -->
         <button class="wd-icon-btn" id="wd-close" title="Cerrar chat">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
       </div>
     </div>
-    
+
     <div class="wd-chat-messages" id="wd-messages">
       <!-- Los mensajes se cargarán aquí -->
     </div>
@@ -331,7 +371,11 @@
     <form class="wd-chat-input-area" id="wd-form">
       <input type="text" id="wd-input" placeholder="Pregúntame algo..." autocomplete="off">
       <button type="submit" id="wd-send-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
       </button>
     </form>
   </div>
@@ -355,9 +399,9 @@
       widget.classList.add('open');
       launcher.classList.remove('pulse');
       input.focus();
-      
+
       // Cargar historial solo la primera vez que se abre
-      if(!isHistoryLoaded) {
+      if (!isHistoryLoaded) {
         loadHistory();
       }
     });
@@ -369,13 +413,13 @@
     function addMessage(role, text) {
       const div = document.createElement('div');
       div.className = `wd-msg ${role}`;
-      
+
       if (role === 'thinking') {
         div.innerHTML = `<span class="wd-loader"></span> ${text}`;
       } else {
         div.textContent = text;
       }
-      
+
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
       return div;
@@ -384,7 +428,7 @@
     async function loadHistory() {
       try {
         const res = await fetch(`${API}/api/history`);
-        if(res.ok) {
+        if (res.ok) {
           const { messages } = await res.json();
           messagesEl.innerHTML = ''; // limpiar para no duplicar
           if (messages.length === 0) {
@@ -402,7 +446,7 @@
     async function checkStatus() {
       try {
         const res = await fetch(`${API}/api/status`);
-        if(res.ok) {
+        if (res.ok) {
           statusDot.classList.add('online');
           statusDot.title = "En línea";
         } else {
@@ -431,11 +475,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text })
         });
-        
+
         const data = await res.json();
         thinking.remove();
-        
-        if(res.ok) {
+
+        if (res.ok) {
           addMessage('assistant', data.response);
         } else {
           addMessage('assistant', `Error: ${data.error || 'Desconocido'}`);
@@ -464,4 +508,5 @@
     setInterval(checkStatus, 10000);
   </script>
 </body>
+
 </html>

@@ -132,6 +132,54 @@ def wd_crear_evaluacion(
     except Exception as exc:
         return f"Error al crear evaluación: {str(exc)}"
 
+@mcp.tool()
+def wd_exportar_reporte_pdf(eventId: int) -> str:
+    """Exporta y obtiene el enlace o resultado del reporte en formato PDF de un evento."""
+    print(f"[MCP Tool] Ejecutando wd_exportar_reporte_pdf para eventId={eventId}", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/export/pdf"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        response.raise_for_status()
+        return f"Reporte PDF exportado/generado. Respuesta: {response.text}"
+    except Exception as exc:
+        return f"Error al exportar reporte PDF: {str(exc)}"
+
+@mcp.tool()
+def wd_exportar_reporte_excel(eventId: int) -> str:
+    """Exporta y obtiene el enlace o resultado del reporte en formato Excel de un evento."""
+    print(f"[MCP Tool] Ejecutando wd_exportar_reporte_excel para eventId={eventId}", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/export/excel"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        response.raise_for_status()
+        return f"Reporte Excel exportado/generado. Respuesta: {response.text}"
+    except Exception as exc:
+        return f"Error al exportar reporte Excel: {str(exc)}"
+
+@mcp.tool()
+def wd_obtener_ranking_evento(eventId: int) -> str:
+    """Obtiene el ranking general de un evento."""
+    print(f"[MCP Tool] Ejecutando wd_obtener_ranking_evento para eventId={eventId}", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/ranking"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        response.raise_for_status()
+        return str(response.json())
+    except Exception as exc:
+        return f"Error al obtener ranking del evento: {str(exc)}"
+
+@mcp.tool()
+def wd_obtener_ranking_modalidad(eventId: int, modalityId: int) -> str:
+    """Obtiene el ranking específico de una modalidad dentro de un evento."""
+    print(f"[MCP Tool] Ejecutando wd_obtener_ranking_modalidad para eventId={eventId}, modalityId={modalityId}", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/modalities/{modalityId}/ranking"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        response.raise_for_status()
+        return str(response.json())
+    except Exception as exc:
+        return f"Error al obtener ranking de la modalidad: {str(exc)}"
+
 
 def main() -> None:
     """Punto de entrada principal para ejecutar el servidor MCP."""
