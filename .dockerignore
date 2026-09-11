@@ -1,0 +1,6 @@
+.git
+**/__pycache__
+**/*.pyc
+backend/data/history
+mcp/.venv
+backend/.venv
