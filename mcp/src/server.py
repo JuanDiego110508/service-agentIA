@@ -5,6 +5,8 @@ Utilizando FastMCP (la interfaz oficial y recomendada del SDK de MCP).
 
 import os
 import sys
+import threading
+import time
 from typing import Any, List
 
 import requests
@@ -18,14 +20,92 @@ load_dotenv()
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
 TRANSPORT = os.getenv("TRANSPORT", "sse").lower().strip()
-WD_API_BASE_URL = os.getenv("WD_API_BASE_URL", "https://api.worlddance.win")
-WD_BEARER_TOKEN = os.getenv("WD_BEARER_TOKEN", "")
+WD_API_BASE_URL = os.getenv("WD_API_BASE_URL", "https://api.worlddance.win/api/v1")
+WD_AGENT_EMAIL = os.getenv("WD_AGENT_EMAIL", "")
+WD_AGENT_PASSWORD = os.getenv("WD_AGENT_PASSWORD", "")
+
+# -------------------------------------------------------------
+# AUTENTICACIÓN DEL AGENTE (cuenta de servicio)
+# -------------------------------------------------------------
+# En vez de un WD_BEARER_TOKEN fijo (que expira a la hora y hay que renovar
+# a mano), el agente se loguea solo con WD_AGENT_EMAIL/WD_AGENT_PASSWORD y
+# mantiene el JWT en memoria, refrescándolo antes de que expire.
+_token_lock = threading.Lock()
+_cached_token: str | None = None
+_token_obtained_at: float = 0.0
+TOKEN_REFRESH_INTERVAL_SECONDS = 50 * 60  # el JWT dura 1h; refrescamos a los 50 min
+
+
+def _login() -> str:
+    """Inicia sesión con la cuenta de servicio del agente y devuelve un JWT nuevo."""
+    if not WD_AGENT_EMAIL or not WD_AGENT_PASSWORD:
+        raise RuntimeError("WD_AGENT_EMAIL / WD_AGENT_PASSWORD no están configurados.")
+    url = f"{WD_API_BASE_URL}/auth/login"
+    response = requests.post(
+        url,
+        json={"email": WD_AGENT_EMAIL, "password": WD_AGENT_PASSWORD},
+        headers={"Content-Type": "application/json"},
+    )
+    response.raise_for_status()
+    body = response.json()
+    jwt = (body.get("data") or {}).get("jwt")
+    if not jwt:
+        raise RuntimeError(f"Login del agente falló: {body.get('message', 'respuesta sin token')}")
+    return jwt
+
+
+def _refresh(token: str) -> str:
+    """Refresca un JWT existente (funciona incluso si acaba de expirar)."""
+    url = f"{WD_API_BASE_URL}/auth/refresh"
+    response = requests.get(url, headers={"Authorization": f"Bearer {token}"})
+    response.raise_for_status()
+    body = response.json()
+    jwt = body.get("jwt")
+    if not jwt:
+        raise RuntimeError("Refresh del agente falló: respuesta sin token")
+    return jwt
+
+
+def get_valid_token() -> str:
+    """Devuelve un JWT vigente del agente, logueándose o refrescando según haga falta."""
+    global _cached_token, _token_obtained_at
+    with _token_lock:
+        if _cached_token is None:
+            _cached_token = _login()
+            _token_obtained_at = time.time()
+        elif time.time() - _token_obtained_at > TOKEN_REFRESH_INTERVAL_SECONDS:
+            try:
+                _cached_token = _refresh(_cached_token)
+            except Exception as exc:
+                print(f"[Auth] Refresh falló ({exc}), reintentando login...", file=sys.stderr)
+                _cached_token = _login()
+            _token_obtained_at = time.time()
+        return _cached_token
+
 
 def get_auth_headers() -> dict[str, str]:
-    headers = {"Content-Type": "application/json"}
-    if WD_BEARER_TOKEN:
-        headers["Authorization"] = f"Bearer {WD_BEARER_TOKEN}"
-    return headers
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {get_valid_token()}",
+    }
+
+
+def _raise_for_status_with_message(response: requests.Response) -> None:
+    """Como response.raise_for_status(), pero conserva el mensaje real que devuelve
+    el backend (ej. {"message": "El evento no tiene modalidades configuradas."})
+    en vez de solo el código HTTP genérico ("400 Client Error: Bad Request ...")."""
+    if response.ok:
+        return
+    detail = None
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            detail = body.get("message") or body.get("error")
+    except ValueError:
+        pass
+    if not detail:
+        detail = (response.text or "").strip()[:300] or response.reason
+    raise RuntimeError(f"HTTP {response.status_code}: {detail}")
 
 # Inicializar FastMCP
 # host/port se pasan aqui (no despues via mcp.settings) porque FastMCP solo
@@ -46,14 +126,30 @@ mcp = FastMCP(
 # -------------------------------------------------------------
 @mcp.tool()
 def wd_generar_cronograma(
-    eventId: int, 
-    defaultDurationMinutes: int, 
-    transitionMinutes: int, 
-    sortingStrategy: str, 
-    stageNames: List[str], 
-    notes: str
+    eventId: int,
+    defaultDurationMinutes: int = 5,
+    transitionMinutes: int = 2,
+    sortingStrategy: str = "NEWEST_FIRST",
+    modalityOrder: List[int] | None = None,
+    stageNames: List[str] | None = None,
+    notes: str = "",
 ) -> str:
-    """Genera un cronograma inicial para un evento de World Dance. Requiere eventId, defaultDurationMinutes, transitionMinutes, sortingStrategy, stageNames y notes."""
+    """Genera el cronograma de un evento de World Dance.
+
+    Parámetros:
+    - eventId: id del evento (obligatorio).
+    - defaultDurationMinutes: minutos por presentación (por defecto 5).
+    - transitionMinutes: minutos de transición entre presentaciones (por defecto 2).
+    - sortingStrategy: orden de las inscripciones dentro de cada modalidad. Valores válidos:
+      "NEWEST_FIRST" (más recientes primero, por defecto), "OLDEST_FIRST" (más antiguas primero),
+      "ALPHABETICAL" (por nombre del participante). Cualquier otro valor cae a NEWEST_FIRST.
+    - modalityOrder: lista opcional de ids de modalidad en el orden deseado (deben pertenecer
+      al evento; las modalidades no listadas se ubican al final). Si se omite, se usa el orden
+      por defecto (división SOLO/DUET/GROUP y luego categoría).
+    - stageNames: lista de nombres de escenarios a usar en rotación. Si se omite, usa un solo
+      escenario ("Escenario Principal").
+    - notes: notas opcionales que quedan asociadas al cronograma generado.
+    """
     print(f"[MCP Tool] Ejecutando wd_generar_cronograma para eventId={eventId}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scheduling/generate"
     payload = {
@@ -61,12 +157,13 @@ def wd_generar_cronograma(
         "defaultDurationMinutes": defaultDurationMinutes,
         "transitionMinutes": transitionMinutes,
         "sortingStrategy": sortingStrategy,
-        "stageNames": stageNames,
-        "notes": notes
+        "modalityOrder": modalityOrder,
+        "stageNames": stageNames or [],
+        "notes": notes,
     }
     try:
         response = requests.post(url, headers=get_auth_headers(), json=payload)
-        response.raise_for_status()
+        _raise_for_status_with_message(response)
         return str(response.json() if response.content else "Cronograma generado exitosamente.")
     except Exception as exc:
         return f"Error al generar cronograma: {str(exc)}"
@@ -78,10 +175,23 @@ def wd_obtener_cronograma(eventId: int) -> str:
     url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}"
     try:
         response = requests.get(url, headers=get_auth_headers())
-        response.raise_for_status()
+        _raise_for_status_with_message(response)
         return str(response.json())
     except Exception as exc:
         return f"Error al obtener cronograma: {str(exc)}"
+
+@mcp.tool()
+def wd_actualizar_estado_cronograma(eventId: int, status: str) -> str:
+    """Actualiza el estado del cronograma de un evento de World Dance (ej. para
+    publicarlo). status debe ser uno de: "DRAFT", "ACTIVE", "FINISHED"."""
+    print(f"[MCP Tool] Ejecutando wd_actualizar_estado_cronograma para eventId={eventId}, status={status}", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}/status"
+    try:
+        response = requests.patch(url, headers=get_auth_headers(), params={"status": status})
+        _raise_for_status_with_message(response)
+        return str(response.json() if response.content else "Estado del cronograma actualizado.")
+    except Exception as exc:
+        return f"Error al actualizar el estado del cronograma: {str(exc)}"
 
 @mcp.tool()
 def wd_eliminar_cronograma(eventId: int) -> str:
@@ -90,7 +200,7 @@ def wd_eliminar_cronograma(eventId: int) -> str:
     url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}"
     try:
         response = requests.delete(url, headers=get_auth_headers())
-        response.raise_for_status()
+        _raise_for_status_with_message(response)
         return "Cronograma eliminado exitosamente."
     except Exception as exc:
         return f"Error al eliminar cronograma: {str(exc)}"
@@ -105,7 +215,7 @@ def wd_obtener_resultados(eventId: int, modalityId: int) -> str:
     url = f"{WD_API_BASE_URL}/scoring/events/{eventId}/modalities/{modalityId}/results"
     try:
         response = requests.get(url, headers=get_auth_headers())
-        response.raise_for_status()
+        _raise_for_status_with_message(response)
         return str(response.json())
     except Exception as exc:
         return f"Error al obtener resultados: {str(exc)}"
@@ -127,7 +237,7 @@ def wd_crear_evaluacion(
     }
     try:
         response = requests.post(url, headers=get_auth_headers(), json=payload)
-        response.raise_for_status()
+        _raise_for_status_with_message(response)
         return str(response.json() if response.content else "Evaluación creada.")
     except Exception as exc:
         return f"Error al crear evaluación: {str(exc)}"
