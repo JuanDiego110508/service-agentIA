@@ -4,7 +4,9 @@ Implementación directa, legible y concisa con bucle de diálogo y persistencia 
 """
 
 import os
+import sys
 import json
+import time
 from dotenv import load_dotenv
 
 # Desactivar telemetría interactiva de CrewAI
@@ -102,17 +104,72 @@ def clear_history():
 # -------------------------------------------------------------
 # 5. Bucle Conversacional y Procesamiento
 # -------------------------------------------------------------
+# Cuántos turnos previos (usuario + asistente) se incluyen como contexto en cada
+# nuevo mensaje, para que el agente tenga memoria real de la conversación.
+MAX_HISTORY_TURNS = 10
+
+
+def _build_task_description(user_input: str) -> str:
+    """Arma la descripción de la tarea incluyendo los últimos turnos de la
+    conversación (antes de agregar el mensaje actual al historial), para que
+    el agente recuerde de qué evento/cronograma se viene hablando."""
+    history = get_history()
+    recent = history[-(MAX_HISTORY_TURNS * 2):]
+    if not recent:
+        return user_input
+
+    transcript = "\n".join(
+        f"{'Usuario' if entry.get('role') == 'user' else 'Asistente'}: {entry.get('content', '')}"
+        for entry in recent
+    )
+
+    return (
+        "Historial reciente de la conversación (úsalo como contexto, por ejemplo para "
+        "recordar el eventId o el cronograma del que se viene hablando):\n"
+        f"{transcript}\n\n"
+        f"Nuevo mensaje del usuario: {user_input}"
+    )
+
+
+# Reintentos con backoff cuando el proveedor del LLM devuelve un error transitorio
+# (ej. 503 UNAVAILABLE / 429 por sobrecarga), en vez de fallar al primer intento.
+MAX_LLM_RETRIES = 3
+RETRY_BASE_DELAY_SECONDS = 2  # backoff: 2s, 4s
+_TRANSIENT_ERROR_MARKERS = ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "overloaded", "high demand")
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    text = str(exc)
+    return any(marker in text for marker in _TRANSIENT_ERROR_MARKERS)
+
+
+def _execute_task_with_retry(task: Task) -> str:
+    """Ejecuta la tarea reintentando con backoff si el error parece transitorio
+    (sobrecarga del proveedor del LLM). Errores no transitorios se propagan de
+    inmediato, sin reintentar."""
+    for attempt in range(1, MAX_LLM_RETRIES + 1):
+        try:
+            return str(assistant.execute_task(task))
+        except Exception as exc:
+            if attempt == MAX_LLM_RETRIES or not _is_transient_error(exc):
+                raise
+            delay = RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
+            print(f"[Retry] Intento {attempt}/{MAX_LLM_RETRIES} falló ({exc}); reintentando en {delay}s...", file=sys.stderr)
+            time.sleep(delay)
+
+
 def process_message(user_input: str) -> str:
     """Procesa un turno de la conversación y guarda el historial."""
+    task_description = _build_task_description(user_input)
     save_message("user", user_input)
 
     try:
         task = Task(
-            description=user_input,
+            description=task_description,
             expected_output="Respuesta conversacional clara y concisa en español.",
             agent=assistant
         )
-        response = str(assistant.execute_task(task))
+        response = _execute_task_with_retry(task)
     except Exception as exc:
         response = f"Error al procesar la solicitud: {exc}"
 
