@@ -122,6 +122,51 @@ mcp = FastMCP(
 )
 
 # -------------------------------------------------------------
+# HERRAMIENTAS DE EVENTOS
+# -------------------------------------------------------------
+@mcp.tool()
+def wd_buscar_eventos(nombre: str = "") -> str:
+    """Busca eventos de World Dance por nombre (coincidencia parcial, sin
+    distinguir mayúsculas/minúsculas). Úsala SIEMPRE que el usuario mencione
+    un evento por su nombre (ej. "Festival de Urban") en vez de darte
+    directamente su eventId numérico, para resolver el id antes de usar
+    cualquier otra herramienta de cronograma, resultados o reportes.
+
+    Parámetros:
+    - nombre: texto a buscar dentro del nombre del evento. Si se deja vacío,
+      devuelve todos los eventos.
+
+    Devuelve una lista de eventos con su id, nombre, estado y fecha. Si no
+    hay coincidencias, devuelve una lista vacía: en ese caso informa al
+    usuario que no encontraste el evento y pídele el nombre exacto o el id.
+    Si hay varias coincidencias, muéstraselas y pídele que confirme cuál es.
+    """
+    print(f"[MCP Tool] Ejecutando wd_buscar_eventos para nombre='{nombre}'", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/events/getEvents"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        _raise_for_status_with_message(response)
+        body = response.json()
+        events = (body or {}).get("data") or []
+        needle = nombre.strip().lower()
+        if needle:
+            events = [e for e in events if needle in str(e.get("name", "")).lower()]
+        resultado = [
+            {
+                "idEvent": e.get("idEvent"),
+                "name": e.get("name"),
+                "status": e.get("status"),
+                "startDate": e.get("startDate"),
+                "location": e.get("location"),
+            }
+            for e in events
+        ]
+        return str(resultado)
+    except Exception as exc:
+        return f"Error al buscar eventos: {str(exc)}"
+
+
+# -------------------------------------------------------------
 # HERRAMIENTAS DE SCHEDULING (CRONOGRAMA)
 # -------------------------------------------------------------
 @mcp.tool()
