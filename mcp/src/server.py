@@ -122,6 +122,80 @@ mcp = FastMCP(
 )
 
 # -------------------------------------------------------------
+# HERRAMIENTAS DE EVENTOS E INSCRIPCIONES
+# -------------------------------------------------------------
+@mcp.tool()
+def wd_buscar_eventos(nombre: str = "") -> str:
+    """Busca eventos por nombre (parcial, sin distinguir mayúsculas). Úsala
+    SIEMPRE que el usuario dé el nombre de un evento en vez del eventId, para
+    resolverlo antes de llamar otra herramienta. nombre vacío = todos.
+    Sin coincidencias: pide nombre exacto o id. Varias: pide que confirme cuál."""
+    print(f"[MCP Tool] wd_buscar_eventos nombre='{nombre}'", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/events/getEvents"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        _raise_for_status_with_message(response)
+        events = (response.json() or {}).get("data") or []
+        needle = nombre.strip().lower()
+        if needle:
+            events = [e for e in events if needle in str(e.get("name", "")).lower()]
+        return str([
+            {"idEvent": e.get("idEvent"), "name": e.get("name"), "status": e.get("status"), "startDate": e.get("startDate")}
+            for e in events
+        ])
+    except Exception as exc:
+        return f"Error al buscar eventos: {exc}"
+
+
+@mcp.tool()
+def wd_listar_inscripciones(eventId: int, status: str = "") -> str:
+    """Lista las inscripciones de un evento. status opcional: PENDING,
+    APPROVED o REJECTED (vacío = todas). Úsala antes de generar un cronograma
+    si el usuario pregunta por qué falla, o antes de aprobar/rechazar."""
+    print(f"[MCP Tool] wd_listar_inscripciones eventId={eventId} status='{status}'", file=sys.stderr)
+    url = f"{WD_API_BASE_URL}/enrollments/event/{eventId}"
+    try:
+        response = requests.get(url, headers=get_auth_headers())
+        _raise_for_status_with_message(response)
+        enrollments = response.json() or []
+        needle = status.strip().upper()
+        if needle:
+            enrollments = [e for e in enrollments if str(e.get("status", "")).upper() == needle]
+        return str([
+            {
+                "enrollmentId": e.get("enrollmentId"),
+                "modalityId": e.get("modalityId"),
+                "status": e.get("status"),
+                "participant": (e.get("participant") or {}).get("fullName") or (e.get("participant") or {}).get("name"),
+            }
+            for e in enrollments
+        ])
+    except Exception as exc:
+        return f"Error al listar inscripciones: {exc}"
+
+
+@mcp.tool()
+def wd_gestionar_inscripcion(enrollmentId: int, status: str, reason: str = "") -> str:
+    """Aprueba o rechaza una inscripción (solo si está PENDING). status debe
+    ser "APPROVED" o "REJECTED". reason es obligatorio si status="REJECTED".
+    Solo puede hacerlo el organizador del evento o el agente si fue activado
+    como ADMIN en ese evento."""
+    print(f"[MCP Tool] wd_gestionar_inscripcion enrollmentId={enrollmentId} status={status}", file=sys.stderr)
+    if status.upper() not in ("APPROVED", "REJECTED"):
+        return "Error: status debe ser APPROVED o REJECTED."
+    if status.upper() == "REJECTED" and not reason.strip():
+        return "Error: debes indicar una razón (reason) para rechazar la inscripción."
+    url = f"{WD_API_BASE_URL}/enrollments/approve"
+    payload = {"enrollmentId": enrollmentId, "status": status.upper(), "reason": reason or None}
+    try:
+        response = requests.patch(url, headers=get_auth_headers(), json=payload)
+        _raise_for_status_with_message(response)
+        return str(response.json() if response.content else "Inscripción actualizada.")
+    except Exception as exc:
+        return f"Error al gestionar la inscripción: {exc}"
+
+
+# -------------------------------------------------------------
 # HERRAMIENTAS DE SCHEDULING (CRONOGRAMA)
 # -------------------------------------------------------------
 @mcp.tool()
@@ -134,22 +208,10 @@ def wd_generar_cronograma(
     stageNames: List[str] | None = None,
     notes: str = "",
 ) -> str:
-    """Genera el cronograma de un evento de World Dance.
-
-    Parámetros:
-    - eventId: id del evento (obligatorio).
-    - defaultDurationMinutes: minutos por presentación (por defecto 5).
-    - transitionMinutes: minutos de transición entre presentaciones (por defecto 2).
-    - sortingStrategy: orden de las inscripciones dentro de cada modalidad. Valores válidos:
-      "NEWEST_FIRST" (más recientes primero, por defecto), "OLDEST_FIRST" (más antiguas primero),
-      "ALPHABETICAL" (por nombre del participante). Cualquier otro valor cae a NEWEST_FIRST.
-    - modalityOrder: lista opcional de ids de modalidad en el orden deseado (deben pertenecer
-      al evento; las modalidades no listadas se ubican al final). Si se omite, se usa el orden
-      por defecto (división SOLO/DUET/GROUP y luego categoría).
-    - stageNames: lista de nombres de escenarios a usar en rotación. Si se omite, usa un solo
-      escenario ("Escenario Principal").
-    - notes: notas opcionales que quedan asociadas al cronograma generado.
-    """
+    """Genera el cronograma de un evento (solo con inscripciones APPROVED).
+    sortingStrategy: NEWEST_FIRST (default), OLDEST_FIRST o ALPHABETICAL.
+    modalityOrder: ids de modalidad en el orden deseado (opcional). stageNames:
+    escenarios en rotación (opcional, default "Escenario Principal")."""
     print(f"[MCP Tool] Ejecutando wd_generar_cronograma para eventId={eventId}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scheduling/generate"
     payload = {
@@ -170,7 +232,7 @@ def wd_generar_cronograma(
 
 @mcp.tool()
 def wd_obtener_cronograma(eventId: int) -> str:
-    """Obtiene el cronograma de un evento de World Dance por su ID (eventId)."""
+    """Obtiene el cronograma de un evento por su eventId."""
     print(f"[MCP Tool] Ejecutando wd_obtener_cronograma para eventId={eventId}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}"
     try:
@@ -182,8 +244,8 @@ def wd_obtener_cronograma(eventId: int) -> str:
 
 @mcp.tool()
 def wd_actualizar_estado_cronograma(eventId: int, status: str) -> str:
-    """Actualiza el estado del cronograma de un evento de World Dance (ej. para
-    publicarlo). status debe ser uno de: "DRAFT", "ACTIVE", "FINISHED"."""
+    """Actualiza el estado del cronograma (ej. para publicarlo). status:
+    "DRAFT", "ACTIVE" o "FINISHED"."""
     print(f"[MCP Tool] Ejecutando wd_actualizar_estado_cronograma para eventId={eventId}, status={status}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}/status"
     try:
@@ -195,7 +257,7 @@ def wd_actualizar_estado_cronograma(eventId: int, status: str) -> str:
 
 @mcp.tool()
 def wd_eliminar_cronograma(eventId: int) -> str:
-    """Elimina el cronograma de un evento de World Dance por su ID (eventId)."""
+    """Elimina el cronograma de un evento por su eventId."""
     print(f"[MCP Tool] Ejecutando wd_eliminar_cronograma para eventId={eventId}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scheduling/event/{eventId}"
     try:
@@ -210,7 +272,7 @@ def wd_eliminar_cronograma(eventId: int) -> str:
 # -------------------------------------------------------------
 @mcp.tool()
 def wd_obtener_resultados(eventId: int, modalityId: int) -> str:
-    """Obtiene los resultados/reportes de una modalidad en un evento de World Dance."""
+    """Obtiene los resultados/reportes de una modalidad en un evento."""
     print(f"[MCP Tool] Ejecutando wd_obtener_resultados para eventId={eventId}, modalityId={modalityId}", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/scoring/events/{eventId}/modalities/{modalityId}/results"
     try:
@@ -244,27 +306,43 @@ def wd_crear_evaluacion(
 
 @mcp.tool()
 def wd_exportar_reporte_pdf(eventId: int) -> str:
-    """Exporta y obtiene el enlace o resultado del reporte en formato PDF de un evento."""
+    """Exporta el reporte en formato PDF de un evento y devuelve el enlace de descarga."""
     print(f"[MCP Tool] Ejecutando wd_exportar_reporte_pdf para eventId={eventId}", file=sys.stderr)
-    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/export/pdf"
-    try:
-        response = requests.get(url, headers=get_auth_headers())
-        response.raise_for_status()
-        return f"Reporte PDF exportado/generado. Respuesta: {response.text}"
-    except Exception as exc:
-        return f"Error al exportar reporte PDF: {str(exc)}"
+    return _exportar_reporte(eventId, "pdf")
 
 @mcp.tool()
 def wd_exportar_reporte_excel(eventId: int) -> str:
-    """Exporta y obtiene el enlace o resultado del reporte en formato Excel de un evento."""
+    """Exporta el reporte en formato Excel de un evento y devuelve el enlace de descarga."""
     print(f"[MCP Tool] Ejecutando wd_exportar_reporte_excel para eventId={eventId}", file=sys.stderr)
-    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/export/excel"
+    return _exportar_reporte(eventId, "excel")
+
+def _exportar_reporte(eventId: int, formato: str) -> str:
+    """El endpoint de exportacion devuelve el archivo binario (PDF/Excel) directamente,
+    no un JSON con un enlace: leerlo con requests y volcarlo a texto (como se hacia antes)
+    produce contenido binario ilegible que el LLM no puede reenviar al usuario, y el
+    navegador nunca recibe nada descargable. En vez de traer el archivo completo solo para
+    descartarlo, se hace un HEAD liviano para confirmar que el reporte esta disponible y se
+    devuelve la URL real: el frontend la detecta en la respuesta y la convierte en un boton
+    de descarga que vuelve a pedir el archivo con las credenciales del usuario que esta
+    chateando (no las de esta cuenta de servicio del agente)."""
+    url = f"{WD_API_BASE_URL}/reports/events/{eventId}/export/{formato}"
     try:
-        response = requests.get(url, headers=get_auth_headers())
-        response.raise_for_status()
-        return f"Reporte Excel exportado/generado. Respuesta: {response.text}"
+        response = requests.head(url, headers=get_auth_headers(), timeout=10)
+        if response.status_code >= 400:
+            return (
+                f"No se pudo confirmar el reporte en {formato.upper()} del evento {eventId} "
+                f"(HTTP {response.status_code}). Verifica que el evento exista y tenga datos."
+            )
     except Exception as exc:
-        return f"Error al exportar reporte Excel: {str(exc)}"
+        # El chequeo previo es best-effort: si falla (timeout, red, o esta cuenta de
+        # servicio no tiene permiso sobre ese evento en particular), igual se devuelve la
+        # URL -- el usuario real la abrira con su propia sesion, que es la que manda.
+        print(f"[MCP Tool] Aviso: no se pudo verificar el reporte ({exc})", file=sys.stderr)
+
+    return (
+        f"Reporte en {formato.upper()} listo para el evento {eventId}. "
+        f"Enlace de descarga: {url}"
+    )
 
 @mcp.tool()
 def wd_obtener_ranking_evento(eventId: int) -> str:

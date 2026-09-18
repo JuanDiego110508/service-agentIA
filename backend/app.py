@@ -37,7 +37,16 @@ def chat():
     if not message:
         return jsonify({"error": "Mensaje requerido"}), 400
 
-    response = process_message(message)
+    # El interceptor Angular ya adjunta el Bearer del usuario real a toda
+    # request (incluida esta, aunque vaya al backend del agente y no a la API
+    # de World Dance). Se reenvía a process_message para que las tools que
+    # mutan datos puedan revalidar los permisos de quien está chateando, en
+    # vez de confiar solo en la cuenta de servicio del agente (ver
+    # agent/authorization.py).
+    auth_header = request.headers.get("Authorization", "")
+    user_token = auth_header[len("Bearer "):] if auth_header.startswith("Bearer ") else None
+
+    response = process_message(message, user_token=user_token)
     return jsonify({
         "success": True,
         "response": response
