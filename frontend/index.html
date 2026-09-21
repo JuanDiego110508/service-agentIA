@@ -381,7 +381,9 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:5000';
+    // Mismo origen: Flask sirve este HTML y su API en el mismo host:puerto
+    // (5000 dentro del contenedor, publicado como 5002 en el host).
+    const API = window.location.origin;
     const launcher = document.getElementById('wd-launcher');
     const widget = document.getElementById('wd-widget');
     const closeBtn = document.getElementById('wd-close');

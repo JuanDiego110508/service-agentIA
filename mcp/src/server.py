@@ -122,77 +122,48 @@ mcp = FastMCP(
 )
 
 # -------------------------------------------------------------
-# HERRAMIENTAS DE EVENTOS E INSCRIPCIONES
+# HERRAMIENTAS DE EVENTOS
 # -------------------------------------------------------------
 @mcp.tool()
 def wd_buscar_eventos(nombre: str = "") -> str:
-    """Busca eventos por nombre (parcial, sin distinguir mayúsculas). Úsala
-    SIEMPRE que el usuario dé el nombre de un evento en vez del eventId, para
-    resolverlo antes de llamar otra herramienta. nombre vacío = todos.
-    Sin coincidencias: pide nombre exacto o id. Varias: pide que confirme cuál."""
-    print(f"[MCP Tool] wd_buscar_eventos nombre='{nombre}'", file=sys.stderr)
+    """Busca eventos de World Dance por nombre (coincidencia parcial, sin
+    distinguir mayúsculas/minúsculas). Úsala SIEMPRE que el usuario mencione
+    un evento por su nombre (ej. "Festival de Urban") en vez de darte
+    directamente su eventId numérico, para resolver el id antes de usar
+    cualquier otra herramienta de cronograma, resultados o reportes.
+
+    Parámetros:
+    - nombre: texto a buscar dentro del nombre del evento. Si se deja vacío,
+      devuelve todos los eventos.
+
+    Devuelve una lista de eventos con su id, nombre, estado y fecha. Si no
+    hay coincidencias, devuelve una lista vacía: en ese caso informa al
+    usuario que no encontraste el evento y pídele el nombre exacto o el id.
+    Si hay varias coincidencias, muéstraselas y pídele que confirme cuál es.
+    """
+    print(f"[MCP Tool] Ejecutando wd_buscar_eventos para nombre='{nombre}'", file=sys.stderr)
     url = f"{WD_API_BASE_URL}/events/getEvents"
     try:
         response = requests.get(url, headers=get_auth_headers())
         _raise_for_status_with_message(response)
-        events = (response.json() or {}).get("data") or []
+        body = response.json()
+        events = (body or {}).get("data") or []
         needle = nombre.strip().lower()
         if needle:
             events = [e for e in events if needle in str(e.get("name", "")).lower()]
-        return str([
-            {"idEvent": e.get("idEvent"), "name": e.get("name"), "status": e.get("status"), "startDate": e.get("startDate")}
-            for e in events
-        ])
-    except Exception as exc:
-        return f"Error al buscar eventos: {exc}"
-
-
-@mcp.tool()
-def wd_listar_inscripciones(eventId: int, status: str = "") -> str:
-    """Lista las inscripciones de un evento. status opcional: PENDING,
-    APPROVED o REJECTED (vacío = todas). Úsala antes de generar un cronograma
-    si el usuario pregunta por qué falla, o antes de aprobar/rechazar."""
-    print(f"[MCP Tool] wd_listar_inscripciones eventId={eventId} status='{status}'", file=sys.stderr)
-    url = f"{WD_API_BASE_URL}/enrollments/event/{eventId}"
-    try:
-        response = requests.get(url, headers=get_auth_headers())
-        _raise_for_status_with_message(response)
-        enrollments = response.json() or []
-        needle = status.strip().upper()
-        if needle:
-            enrollments = [e for e in enrollments if str(e.get("status", "")).upper() == needle]
-        return str([
+        resultado = [
             {
-                "enrollmentId": e.get("enrollmentId"),
-                "modalityId": e.get("modalityId"),
+                "idEvent": e.get("idEvent"),
+                "name": e.get("name"),
                 "status": e.get("status"),
-                "participant": (e.get("participant") or {}).get("fullName") or (e.get("participant") or {}).get("name"),
+                "startDate": e.get("startDate"),
+                "location": e.get("location"),
             }
-            for e in enrollments
-        ])
+            for e in events
+        ]
+        return str(resultado)
     except Exception as exc:
-        return f"Error al listar inscripciones: {exc}"
-
-
-@mcp.tool()
-def wd_gestionar_inscripcion(enrollmentId: int, status: str, reason: str = "") -> str:
-    """Aprueba o rechaza una inscripción (solo si está PENDING). status debe
-    ser "APPROVED" o "REJECTED". reason es obligatorio si status="REJECTED".
-    Solo puede hacerlo el organizador del evento o el agente si fue activado
-    como ADMIN en ese evento."""
-    print(f"[MCP Tool] wd_gestionar_inscripcion enrollmentId={enrollmentId} status={status}", file=sys.stderr)
-    if status.upper() not in ("APPROVED", "REJECTED"):
-        return "Error: status debe ser APPROVED o REJECTED."
-    if status.upper() == "REJECTED" and not reason.strip():
-        return "Error: debes indicar una razón (reason) para rechazar la inscripción."
-    url = f"{WD_API_BASE_URL}/enrollments/approve"
-    payload = {"enrollmentId": enrollmentId, "status": status.upper(), "reason": reason or None}
-    try:
-        response = requests.patch(url, headers=get_auth_headers(), json=payload)
-        _raise_for_status_with_message(response)
-        return str(response.json() if response.content else "Inscripción actualizada.")
-    except Exception as exc:
-        return f"Error al gestionar la inscripción: {exc}"
+        return f"Error al buscar eventos: {str(exc)}"
 
 
 # -------------------------------------------------------------
