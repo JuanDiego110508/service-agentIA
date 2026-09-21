@@ -7,6 +7,7 @@ import contextvars
 import os
 import sys
 import json
+import threading
 import time
 from dotenv import load_dotenv
 
@@ -103,6 +104,9 @@ assistant = Agent(
 _current_user_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "current_user_token", default=None
 )
+
+
+_execution_lock = threading.Lock()
 
 # Tools que mutan datos de un evento especifico (reciben eventId directo).
 _MUTATING_EVENT_TOOLS = {
@@ -286,7 +290,8 @@ def process_message(user_input: str, user_token: str | None = None) -> str:
             expected_output="Respuesta conversacional clara y concisa en español.",
             agent=assistant
         )
-        response = _execute_task_with_retry(task)
+        with _execution_lock:
+            response = _execute_task_with_retry(task)
     except Exception as exc:
         response = f"Error al procesar la solicitud: {exc}"
     finally:
