@@ -79,8 +79,8 @@ assistant = Agent(
         "fabricar uno que parezca plausible. "
         "Si una herramienta responde que el usuario no tiene permisos de organizador o administrador sobre "
         "un evento (por ejemplo al generar/eliminar un cronograma o gestionar una inscripción), comunícalo "
-        "honestamente tal cual y sugiere pedirle al dueño del evento que le asigne un rol; no reintentes de "
-        "otra forma para evadir esa restricción, no es un error transitorio. "
+        "directamente con el mensaje recibido ('No puedes realizar esta acción, ya que no eres organizador de este evento'); "
+        "no inventes justificaciones ni reintentes de otra forma, ya que es una restricción estricta de seguridad. "
         "Responde siempre en español, con tono amable, conciso y profesional, sin emojis, mostrando la "
         "información de las herramientas de forma clara y organizada."
     ),
@@ -169,34 +169,50 @@ except Exception as e:
 
 
 # -------------------------------------------------------------
-# 4. Historial de la Conversación
+# 4. Historial de la Conversación (Aislado por Usuario)
 # -------------------------------------------------------------
-HISTORY_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "data", "history", "conversacion.json")
+HISTORY_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "history")
 )
 
-def get_history() -> list:
-    """Lee el historial de mensajes persistido."""
-    if os.path.exists(HISTORY_FILE):
+def _get_history_file(user_id: int | str | None = None) -> str:
+    """Devuelve la ruta del archivo de historial correspondiente al usuario."""
+    os.makedirs(HISTORY_DIR, exist_ok=True)
+    if user_id is not None and str(user_id).strip():
+        clean_id = "".join(c for c in str(user_id) if c.isalnum() or c in ("-", "_"))
+        return os.path.join(HISTORY_DIR, f"user_{clean_id}.json")
+    return os.path.join(HISTORY_DIR, "anonymous.json")
+
+def get_history(user_id: int | str | None = None) -> list:
+    """Lee el historial de mensajes persistido del usuario."""
+    file_path = _get_history_file(user_id)
+    if os.path.exists(file_path):
         try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return []
     return []
 
-def save_message(role: str, content: str):
-    """Guarda un mensaje en el archivo de historial JSON."""
-    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-    history = get_history()
+def save_message(user_id: int | str | None, role: str, content: str):
+    """Guarda un mensaje en el archivo de historial JSON del usuario."""
+    file_path = _get_history_file(user_id)
+    history = get_history(user_id)
     history.append({"role": role, "content": content})
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[History] Error guardando historial para usuario {user_id}: {e}", file=sys.stderr)
 
-def clear_history():
-    """Limpia el archivo de historial."""
-    if os.path.exists(HISTORY_FILE):
-        os.remove(HISTORY_FILE)
+def clear_history(user_id: int | str | None = None):
+    """Limpia el archivo de historial del usuario."""
+    file_path = _get_history_file(user_id)
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"[History] Error eliminando historial para usuario {user_id}: {e}", file=sys.stderr)
 
 
 # -------------------------------------------------------------
@@ -216,11 +232,11 @@ MAX_HISTORY_TURNS = int(os.getenv("MAX_HISTORY_TURNS", "6"))
 MAX_HISTORY_MESSAGE_CHARS = 400
 
 
-def _build_task_description(user_input: str) -> str:
+def _build_task_description(user_input: str, user_id: int | str | None = None) -> str:
     """Arma la descripción de la tarea incluyendo los últimos turnos de la
-    conversación (antes de agregar el mensaje actual al historial), para que
-    el agente recuerde de qué evento/cronograma se viene hablando."""
-    history = get_history()
+    conversación del usuario específico (antes de agregar el mensaje actual al historial),
+    para que el agente recuerde de qué evento/cronograma se viene hablando."""
+    history = get_history(user_id)
     recent = history[-(MAX_HISTORY_TURNS * 2):]
     if not recent:
         return user_input
@@ -272,16 +288,15 @@ def _execute_task_with_retry(task: Task) -> str:
 
 
 def process_message(user_input: str, user_token: str | None = None) -> str:
-    """Procesa un turno de la conversación y guarda el historial.
+    """Procesa un turno de la conversación y guarda el historial aislado por usuario.
 
     user_token: el Bearer JWT de quien está chateando (lo reenvía app.py desde
-    el header Authorization del navegador). Se expone via contextvar durante
-    la ejecución de la tarea para que las tools que mutan datos puedan
-    revalidar, con la identidad real del usuario, que tiene permiso sobre el
-    evento/inscripción en cuestión -- ver _guard_event_tool más arriba.
+    el header Authorization del navegador). Se usa para aislar el historial
+    y para revalidar permisos en las tools mutadoras.
     """
-    task_description = _build_task_description(user_input)
-    save_message("user", user_input)
+    user_id = authorization.decode_user_id(user_token)
+    task_description = _build_task_description(user_input, user_id=user_id)
+    save_message(user_id, "user", user_input)
 
     token_reset = _current_user_token.set(user_token)
     try:
@@ -297,7 +312,7 @@ def process_message(user_input: str, user_token: str | None = None) -> str:
     finally:
         _current_user_token.reset(token_reset)
 
-    save_message("assistant", response)
+    save_message(user_id, "assistant", response)
     return response
 
 def chat():

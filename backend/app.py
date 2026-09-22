@@ -7,11 +7,19 @@ import json
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from agent.conversational_agent import process_message, get_history, clear_history
+from agent.authorization import decode_user_id
 
 # Configurar Flask para que sirva la carpeta frontend estáticamente
 frontend_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
 app = Flask(__name__, static_folder=frontend_folder, static_url_path="/")
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+def _get_user_token_and_id():
+    """Extrae el token Bearer del header y decodifica el userId si existe."""
+    auth_header = request.headers.get("Authorization", "")
+    user_token = auth_header[len("Bearer "):] if auth_header.startswith("Bearer ") else None
+    user_id = decode_user_id(user_token) if user_token else None
+    return user_token, user_id
 
 @app.route("/")
 def serve_frontend():
@@ -38,13 +46,9 @@ def chat():
         return jsonify({"error": "Mensaje requerido"}), 400
 
     # El interceptor Angular ya adjunta el Bearer del usuario real a toda
-    # request (incluida esta, aunque vaya al backend del agente y no a la API
-    # de World Dance). Se reenvía a process_message para que las tools que
-    # mutan datos puedan revalidar los permisos de quien está chateando, en
-    # vez de confiar solo en la cuenta de servicio del agente (ver
-    # agent/authorization.py).
-    auth_header = request.headers.get("Authorization", "")
-    user_token = auth_header[len("Bearer "):] if auth_header.startswith("Bearer ") else None
+    # request. Se reenvía a process_message para aislar el historial y revalidar
+    # permisos en las herramientas mutadoras.
+    user_token, _ = _get_user_token_and_id()
 
     response = process_message(message, user_token=user_token)
     return jsonify({
@@ -55,14 +59,16 @@ def chat():
 
 @app.route("/api/history", methods=["GET"])
 def history():
-    """Retorna el historial de conversación persistido."""
-    return jsonify({"messages": get_history()})
+    """Retorna el historial de conversación persistido del usuario."""
+    _, user_id = _get_user_token_and_id()
+    return jsonify({"messages": get_history(user_id=user_id)})
 
 
 @app.route("/api/history/clear", methods=["POST"])
 def clear():
-    """Limpia el historial de conversación."""
-    clear_history()
+    """Limpia el historial de conversación del usuario."""
+    _, user_id = _get_user_token_and_id()
+    clear_history(user_id=user_id)
     return jsonify({"success": True})
 
 

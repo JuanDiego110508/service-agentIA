@@ -146,9 +146,7 @@ def require_event_authorization(event_id: int, token: str | None) -> None:
         )
     if not is_owner_or_admin_of_event(event_id, user_id, token):  # type: ignore[arg-type]
         raise AuthorizationError(
-            f"No tienes permisos de organizador o administrador sobre el evento {event_id}, "
-            "así que no puedo realizar esta acción ahí. Pídele al dueño del evento que te asigne "
-            "un rol o que active al agente para ese evento."
+            "No puedes realizar esta acción, ya que no eres organizador de este evento."
         )
 
 
@@ -161,11 +159,9 @@ def require_enrollment_authorization(enrollment_id: int, token: str | None) -> N
     event_id = resolve_event_id_for_enrollment(enrollment_id, token)  # type: ignore[arg-type]
     if event_id is None:
         raise AuthorizationError(
-            f"No se pudo verificar a qué evento pertenece la inscripción {enrollment_id}, así que no puedo "
-            "gestionarla por seguridad."
+            "No se pudo verificar a qué evento pertenece esta inscripción, por lo que no es posible gestionarla por seguridad."
         )
     if not is_owner_or_admin_of_event(event_id, user_id, token):  # type: ignore[arg-type]
         raise AuthorizationError(
-            f"No tienes permisos de organizador o administrador sobre el evento {event_id} "
-            f"(dueño de la inscripción {enrollment_id}), así que no puedo aprobarla ni rechazarla."
+            "No puedes realizar esta acción, ya que no eres organizador del evento al que pertenece esta inscripción."
         )
